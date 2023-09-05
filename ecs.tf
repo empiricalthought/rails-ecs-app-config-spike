@@ -24,26 +24,38 @@ resource "aws_cloudwatch_log_group" "app_config_spike" {
 }
 
 resource "aws_ecs_task_definition" "app_config_spike" {
-  execution_role_arn       = aws_iam_role.app_config_spike_task_execution.arn
-  family                   = "rails-ecs-app-config-spike"
-  container_definitions    = <<EOF
-[{
-  "name": "rails-ecs-app-config-spike",
-  "image": "${aws_ecr_repository.rails_app.repository_url}:latest",
-  "portMappings": [{
-    "containerPort": 3000
-  }],
-  "logConfiguration": {
-    "logDriver": "awslogs",
-    "options": {
-      "awslogs-group": "/ecs/rails-ecs-app-config-spike",
-      "awslogs-region": "us-east-1",
-      "awslogs-stream-prefix": "ecs"
+  execution_role_arn = aws_iam_role.app_config_spike_task_execution.arn
+  family             = "rails-ecs-app-config-spike"
+  container_definitions = jsonencode([
+    {
+      name      = "rails-ecs-app-config-spike"
+      image     = "${aws_ecr_repository.rails_app.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 3000
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/rails-ecs-app-config-spike"
+          "awslogs-region"        = "us-east-1"
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+    },
+    {
+      name      = "appconfig-agent"
+      image     = "aws-appconfig/aws-appconfig-agent:2.x"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 2772
+        }
+      ]
     }
-  }
-}
-]
-EOF
+  ])
   cpu                      = 256
   memory                   = 512
   requires_compatibilities = ["FARGATE"]
