@@ -2,7 +2,7 @@ resource "aws_ecs_service" "app_config_spike" {
   name            = "rails-ecs-app-config-spike"
   launch_type     = "FARGATE"
   task_definition = aws_ecs_task_definition.app_config_spike.arn
-  desired_count   = 0
+  desired_count   = 1
   cluster         = aws_ecs_cluster.app_config_spike.id
 
   network_configuration {
