@@ -2,7 +2,7 @@ resource "aws_ecs_service" "app_config_spike" {
   name            = "rails-ecs-app-config-spike"
   launch_type     = "FARGATE"
   task_definition = aws_ecs_task_definition.app_config_spike.arn
-  desired_count   = 1
+  desired_count   = 0
   cluster         = aws_ecs_cluster.app_config_spike.id
 
   network_configuration {
@@ -25,6 +25,7 @@ resource "aws_cloudwatch_log_group" "app_config_spike" {
 
 resource "aws_ecs_task_definition" "app_config_spike" {
   execution_role_arn = aws_iam_role.app_config_spike_task_execution.arn
+  task_role_arn      = aws_iam_role.app_config_spike_task.arn
   family             = "rails-ecs-app-config-spike"
   container_definitions = jsonencode([
     {
@@ -47,7 +48,7 @@ resource "aws_ecs_task_definition" "app_config_spike" {
     },
     {
       name      = "appconfig-agent"
-      image     = "aws-appconfig/aws-appconfig-agent:2.x"
+      image     = "public.ecr.aws/aws-appconfig/aws-appconfig-agent:2.x"
       essential = true
       portMappings = [
         {
@@ -75,6 +76,11 @@ resource "aws_iam_role" "app_config_spike_task_execution" {
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role.json
 }
 
+resource "aws_iam_role" "app_config_spike_task" {
+  name               = "rails-ecs-app-config-spike-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role.json
+}
+
 data "aws_iam_policy_document" "ecs_task_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -86,6 +92,17 @@ data "aws_iam_policy_document" "ecs_task_assume_role" {
   }
 }
 
+data "aws_iam_policy_document" "ecs_appconfig_role" {
+  statement {
+    actions = [
+      "appconfig:StartConfigurationSession",
+      "appconfig:GetLatestConfiguration"
+    ]
+    resources = ["*"]
+    effect    = "Allow"
+  }
+}
+
 data "aws_iam_policy" "ecs_task_execution_role" {
   arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
@@ -93,6 +110,11 @@ data "aws_iam_policy" "ecs_task_execution_role" {
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role" {
   policy_arn = data.aws_iam_policy.ecs_task_execution_role.arn
   role       = aws_iam_role.app_config_spike_task_execution.name
+}
+
+resource "aws_iam_role_policy" "ecs_task_execution_role" {
+  policy = data.aws_iam_policy_document.ecs_appconfig_role.json
+  role   = aws_iam_role.app_config_spike_task.name
 }
 
 resource "aws_ecs_cluster" "app_config_spike" {
